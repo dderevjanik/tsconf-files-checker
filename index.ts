@@ -1,3 +1,4 @@
+// TODO: Add more meaningful errors with explanation
 import * as ts from "typescript";
 import nconf from "nconf";
 import fs from "fs";
@@ -12,6 +13,7 @@ type Config = (typeof config) & {
     help?: boolean;
     project?: string; // Path to tsconfig
     // TODO: Add --update, which automatically update tsconfig with successFiles
+    // TODO: Add --verbose
 };
 
 const conf = nconf
@@ -60,10 +62,10 @@ function check(inputFileNames: string[], options: ts.CompilerOptions): void {
                 throw new Error('CANNOT_READ_TSCONFIG');
             }
             tsconf = ts.parseConfigFileTextToJson('test', file.toString());
+            // NOTE: Because tsconfig.json can have comments, JSON.parse() will throw errors
             if (tsconf.error) {
                 throw new Error('CANNOT_PARSE_TSCONFIG');
             }
-
         } else {
             throw new Error('NON_EXISTS_PROJECT_PATH');
         }
