@@ -1,0 +1,24 @@
+{
+  "name": "tsconfig-runner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "@types/glob": "^7.1.1",
+    "@types/nconf": "^0.10.0",
+    "@types/node": "^12.7.1",
+    "glob": "^7.1.4",
+    "nconf": "^0.10.0",
+    "typescript": "^3.5.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
