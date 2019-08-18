@@ -15,6 +15,7 @@ type Config = (typeof config) & {
     help?: boolean;
     project?: string; // Path to project's tsconfig
     verbose?: boolean;
+    js?: boolean;
     // TODO: Add --update, which automatically update tsconfig with successFiles
 };
 
@@ -30,7 +31,8 @@ if (conf.h || conf.help || conf._.length === 0) {
     process.stdout.write("\n");
     process.stdout.write("\t--project\tpath to your tsconfig.json\n");
     process.stdout.write("\t--verbose\tprint all logs, usefull for debugging\n");
-    // TODO: Add --js to check also .js files
+    process.stdout.write("\t--js\tinclude javascript files\n");
+    // TODO: Finish --js
     // TODO: Add --update
     process.exit(0);
 }
@@ -67,7 +69,6 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
             if (inputFileNames.includes(dg.file!.fileName)) {
                 // File is in inputFiles
                 errorFiles.add(dg.file!.fileName);
-                console.log(dg.messageText);
             }
         }
     });
@@ -85,6 +86,7 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
     let tsconf: any;
     let absTsconfPath: string;
     let absTsconfDirName: string;
+    let tsconfFiles: string[];
 
     if (conf.verbose) {
         isVerbose = true;
@@ -97,7 +99,7 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
         if (fs.existsSync(conf.project)) {
             let file: Buffer;
             try {
-                verbose(`Reading tsconfig '${absTsconfPath}'`);
+                console.log(`Reading tsconfig '${absTsconfPath}'`);
                 file = fs.readFileSync(conf.project);
                 absTsconfDirName = path.dirname(absTsconfPath);
             } catch (err) {
@@ -105,6 +107,9 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
             }
             verbose('Parsing tsconfig');
             tsconf = ts.parseConfigFileTextToJson('test', file!.toString());
+            tsconfFiles = tsconf.config.files
+                ? tsconf.config.files.map(p => path.resolve(absTsconfDirName, p)) // Get absolute path of files
+                : [];
             // NOTE: Because tsconfig.json can have comments, JSON.parse() will throw errors
             if (tsconf.error) {
                 printError('CANNOT_PARSE_TSCONFIG', `Cannot parse provided project '${conf.project}'. Make sure that tsconfig is valid config`);
@@ -124,15 +129,24 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
             if (err) {
                 printError('GLOB_ERROR', `Error during glob ${err}`);
             }
-            verbose(`Found ${files.length} .ts files in project`);
+            console.log(`Found ${files.length} .ts files in project`);
             const { successFiles, errorFiles } = check(files, tsconf.config.compilerOptions);
+
+            const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
+            const brokenFiles = Array.from(errorFiles).filter(f => tsconfFiles.includes(f));
 
             // check success and error files against tsconfig.json
 
-            verbose(`--- SuccessFiles count: ${successFiles.length} ---`);
+            verbose(`--- Files Ok: ${successFiles.length} ---`);
             verbose(successFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
-            verbose(`--- ErrorFiles count: ${errorFiles.size} ---`);
+            verbose(`--- Files with errors: ${errorFiles.size} ---`);
             verbose(Array.from(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
+
+            console.log(`--- Include new files to tsconfig ---`);
+            console.log(newFilesToBeIncluded.map(p => path.relative(absTsconfDirName, p)).join('\n'));
+            console.log(`--- Those files were broken ---`);
+            console.log(brokenFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
+
             // console.log(successFiles.map(p => path.relative(tsconfDirName, p)));
             // console.log(errorFiles.map(p => path.relative(tsconfDirName, p)));
             process.exit(0);
