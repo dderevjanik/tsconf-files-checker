@@ -6,6 +6,9 @@
   "directories": {
     "test": "test"
   },
+  "bin": {
+    "tscfc": "dist/index.js"
+  },
   "dependencies": {
     "@types/glob": "^7.1.1",
     "@types/nconf": "^0.10.0",
@@ -16,6 +19,7 @@
   },
   "devDependencies": {},
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

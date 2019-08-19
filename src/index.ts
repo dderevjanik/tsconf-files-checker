@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // TODO: Convert to jsfile with @ts-check enabled. This approach would be better for cli programs
 import * as ts from "typescript";
 import nconf from "nconf";
