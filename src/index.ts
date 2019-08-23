@@ -63,14 +63,20 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
     verbose(`Runnig program against ${absolutePathsWithoutNodeModules.length} .ts files`);
 
     const program = ts.createProgram(absolutePathsWithoutNodeModules, options);
-    const errorFiles = new Set<string>();
+    const errorFiles = new Map<string, Array<{ line: number; msg: string; }>>();
     const diagnostics = program.getSemanticDiagnostics();
     diagnostics.forEach((dg) => {
         if (dg.code) {
             // File has error
-            if (inputFileNames.includes(dg.file!.fileName)) {
+            const filename = dg.file!.fileName;
+            if (inputFileNames.includes(filename)) {
                 // File is in inputFiles
-                errorFiles.add(dg.file!.fileName);
+                if (errorFiles.has(filename)) {
+                    const prevErrors = errorFiles.get(filename);
+                    errorFiles.set(filename, [...prevErrors, { line: dg.start, msg: dg.messageText.toString() }]);
+                } else {
+                    errorFiles.set(dg.file!.fileName, [{ line: dg.start, msg: dg.messageText.toString() }]);
+                }
             }
         }
     });
@@ -131,26 +137,40 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
             if (err) {
                 printError('GLOB_ERROR', `Error during glob ${err}`);
             }
-            console.log(`Found ${files.length} .ts files in project`);
+            if (files.length === 0) {
+                printError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf._[0]}'`);
+            }
+            console.log(`Analyzing ${files.length} typescript files ...`);
             const { successFiles, errorFiles } = check(files, tsconf.config.compilerOptions);
 
             const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
-            const brokenFiles = Array.from(errorFiles).filter(f => tsconfFiles.includes(f));
+            const brokenFiles = Array.from(errorFiles.keys()).filter(f => tsconfFiles.includes(f));
 
             // check success and error files against tsconfig.json
 
             verbose(`--- Files Ok: ${successFiles.length} ---`);
             verbose(successFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
             verbose(`--- Files with errors: ${errorFiles.size} ---`);
-            verbose(Array.from(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
+            verbose(Array.from(errorFiles.keys()).map(p => path.relative(absTsconfDirName, p)).join('\n'));
 
-            console.log(`--- Include new files to tsconfig ---`);
-            console.log(newFilesToBeIncluded.map(p => path.relative(absTsconfDirName, p)).join('\n'));
-            console.log(`--- Those files were broken ---`);
-            console.log(brokenFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
+            console.log(`--- Include new files [${newFilesToBeIncluded.length}] to tsconf ---`);
+            newFilesToBeIncluded.forEach(nf => {
+                console.log(path.relative(absTsconfDirName, nf));
+            });
+            console.log(`--- Those files [${brokenFiles.length}] were broken ---`);
+            brokenFiles.forEach(bf => {
+                const errors = errorFiles.get(bf);
+                console.log(`${path.relative(absTsconfDirName, bf)} ${errors.length} errors`);
+                console.log(errors.map(err => `\t[${err.line}] ${err.msg}`).join('\n'));
+            });
+            console.log('--- Stats ----');
+            console.log(`Remaining ${files.length - errorFiles.size - newFilesToBeIncluded.length}/${files.length} files to be fixed`)
 
             // console.log(successFiles.map(p => path.relative(tsconfDirName, p)));
             // console.log(errorFiles.map(p => path.relative(tsconfDirName, p)));
+            if (brokenFiles.length) {
+                process.exit(1);
+            }
             process.exit(0);
         });
     }
