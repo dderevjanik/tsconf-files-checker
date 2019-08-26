@@ -43,6 +43,10 @@ let isVerbose: boolean;
 
 /// DEFINITIONS
 
+function red(str: string) {
+    return `\u001b[31m${str}\u001b[39m`;
+}
+
 function verbose(msg: string) {
     if (isVerbose) {
         console.debug(msg);
@@ -53,7 +57,7 @@ function printError(err: string, msg: string) {
     throw new Error(`ERROR: ${err}\n${msg}`);
 }
 
-function check(inputFileNames: string[], options: ts.CompilerOptions) {
+function checkFiles(inputFileNames: string[], options: ts.CompilerOptions) {
     // Obey 'node_modules/' files
     const nodeModulesRE = new RegExp(/node_modules/);
     const absolutePathsWithoutNodeModules = inputFileNames
@@ -63,7 +67,7 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
     verbose(`Runnig program against ${absolutePathsWithoutNodeModules.length} .ts files`);
 
     const program = ts.createProgram(absolutePathsWithoutNodeModules, options);
-    const errorFiles = new Map<string, Array<{ line: number; msg: string; }>>();
+    const errorFiles = new Map<string, Array<ts.Diagnostic>>();
     const diagnostics = program.getSemanticDiagnostics();
     diagnostics.forEach((dg) => {
         if (dg.code) {
@@ -73,9 +77,9 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
                 // File is in inputFiles
                 if (errorFiles.has(filename)) {
                     const prevErrors = errorFiles.get(filename);
-                    errorFiles.set(filename, [...prevErrors, { line: dg.start, msg: dg.messageText.toString() }]);
+                    errorFiles.set(filename, [...prevErrors, dg]);
                 } else {
-                    errorFiles.set(dg.file!.fileName, [{ line: dg.start, msg: dg.messageText.toString() }]);
+                    errorFiles.set(dg.file!.fileName, [dg]);
                 }
             }
         }
@@ -141,7 +145,7 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
                 printError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf._[0]}'`);
             }
             console.log(`Analyzing ${files.length} typescript files ...`);
-            const { successFiles, errorFiles } = check(files, tsconf.config.compilerOptions);
+            const { successFiles, errorFiles } = checkFiles(files, tsconf.config.compilerOptions);
 
             const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
             const brokenFiles = Array.from(errorFiles.keys()).filter(f => tsconfFiles.includes(f));
@@ -160,8 +164,9 @@ function check(inputFileNames: string[], options: ts.CompilerOptions) {
             console.log(`--- Those files [${brokenFiles.length}] were broken ---`);
             brokenFiles.forEach(bf => {
                 const errors = errorFiles.get(bf);
-                console.log(`${path.relative(absTsconfDirName, bf)} ${errors.length} errors`);
-                console.log(errors.map(err => `\t[${err.line}] ${err.msg}`).join('\n'));
+                const fileRelPath = path.relative(absTsconfDirName, bf);
+                console.log(`[tscfc] ${red(fileRelPath)} ${errors.length} errors`);
+                console.log(errors.map(err => `\tTS${err.code}: ${red(err.messageText.toString())}`).join('\n'));
             });
             console.log('--- Stats ----');
             console.log(`Remaining ${files.length - errorFiles.size - newFilesToBeIncluded.length}/${files.length} files to be fixed`)
