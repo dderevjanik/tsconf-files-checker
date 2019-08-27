@@ -3,7 +3,7 @@
 // TODO: Convert to jsfile with @ts-check enabled. This approach would be better for cli programs
 import * as ts from "typescript";
 import nconf from "nconf";
-import fs from "fs";
+import fs, { writeFileSync } from "fs";
 import glob from "glob";
 import path from "path";
 
@@ -20,6 +20,7 @@ type Config = (typeof config) & {
     help?: boolean;
     project?: string; // Path to project's tsconfig
     verbose?: boolean;
+    update?: boolean;
     js?: boolean;
     // TODO: Add --update, which automatically update tsconfig with successFiles
 };
@@ -36,7 +37,7 @@ if (conf.h || conf.help || conf._.length === 0) {
     process.stdout.write("\n");
     process.stdout.write("\t--project\tpath to your tsconfig.json\n");
     process.stdout.write("\t--verbose\tprint all logs, usefull for debugging\n");
-    process.stdout.write("\t--js\tinclude javascript files\n");
+    process.stdout.write("\t--update\include successfiles to tsconf\n");
     // TODO: Finish --js
     // TODO: Add --update
     process.exit(0);
@@ -64,6 +65,7 @@ function verbose(msg: string) {
         isVerbose = true;
     }
 
+    verbose(JSON.stringify(conf, null, 2));
     // TODO: If not defined, try to find nearest tsconfig.json in CWD using ts.findConf. Inform user about that
     if (conf.project !== undefined) {
         verbose('Checking existence of tsconfig');
@@ -131,6 +133,14 @@ function verbose(msg: string) {
                     reportFileCheck(fileRelPath, errors);
                 });
                 console.log(`Found errors in ${brokenFiles.length} files`);
+            }
+
+            if (conf.update && newFilesToBeIncluded.length) {
+                newFilesToBeIncluded.forEach(f => {
+                    const relPath = path.relative(absTsconfDirName, f);
+                    tsconf.config.files.push(relPath);
+                });
+                writeFileSync(absTsconfPath, JSON.stringify(tsconf.config, null, 2));
             }
 
             // console.log(successFiles.map(p => path.relative(tsconfDirName, p)));
