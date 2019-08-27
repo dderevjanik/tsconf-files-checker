@@ -7,6 +7,9 @@ import fs from "fs";
 import glob from "glob";
 import path from "path";
 
+import { throwError, reportFileCheck, yellow } from "./reporter";
+import { checkFiles } from "./check-files";
+
 /// CLI
 
 const config = {};
@@ -43,53 +46,10 @@ let isVerbose: boolean;
 
 /// DEFINITIONS
 
-function red(str: string) {
-    return `\u001b[31m${str}\u001b[39m`;
-}
-
 function verbose(msg: string) {
     if (isVerbose) {
         console.debug(msg);
     }
-}
-
-function printError(err: string, msg: string) {
-    throw new Error(`ERROR: ${err}\n${msg}`);
-}
-
-function checkFiles(inputFileNames: string[], options: ts.CompilerOptions) {
-    // Obey 'node_modules/' files
-    const nodeModulesRE = new RegExp(/node_modules/);
-    const absolutePathsWithoutNodeModules = inputFileNames
-        .filter(f => !nodeModulesRE.test(f))
-        .map(f => path.resolve(f));
-    verbose(`Skipped ${inputFileNames.length - absolutePathsWithoutNodeModules.length} node_modules files`);
-    verbose(`Runnig program against ${absolutePathsWithoutNodeModules.length} .ts files`);
-
-    const program = ts.createProgram(absolutePathsWithoutNodeModules, options);
-    const errorFiles = new Map<string, Array<ts.Diagnostic>>();
-    const diagnostics = program.getSemanticDiagnostics();
-    diagnostics.forEach((dg) => {
-        if (dg.code) {
-            // File has error
-            const filename = dg.file!.fileName;
-            if (inputFileNames.includes(filename)) {
-                // File is in inputFiles
-                if (errorFiles.has(filename)) {
-                    const prevErrors = errorFiles.get(filename);
-                    errorFiles.set(filename, [...prevErrors, dg]);
-                } else {
-                    errorFiles.set(dg.file!.fileName, [dg]);
-                }
-            }
-        }
-    });
-    const successFiles = absolutePathsWithoutNodeModules.filter((filePath) => !errorFiles.has(filePath));
-
-    return {
-        successFiles,
-        errorFiles
-    };
 }
 
 /// MAIN
@@ -115,7 +75,7 @@ function checkFiles(inputFileNames: string[], options: ts.CompilerOptions) {
                 file = fs.readFileSync(conf.project);
                 absTsconfDirName = path.dirname(absTsconfPath);
             } catch (err) {
-                printError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${conf.project}'. Make sure that project path is correct`);
+                throwError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${conf.project}'. Make sure that project path is correct`);
             }
             verbose('Parsing tsconfig');
             tsconf = ts.parseConfigFileTextToJson('test', file!.toString());
@@ -124,52 +84,54 @@ function checkFiles(inputFileNames: string[], options: ts.CompilerOptions) {
                 : [];
             // NOTE: Because tsconfig.json can have comments, JSON.parse() will throw errors
             if (tsconf.error) {
-                printError('CANNOT_PARSE_TSCONFIG', `Cannot parse provided project '${conf.project}'. Make sure that tsconfig is valid config`);
+                throwError('CANNOT_PARSE_TSCONFIG', `Cannot parse provided project '${conf.project}'. Make sure that tsconfig is valid config`);
             }
         } else {
-            printError('NON_EXISTS_PROJECT_PATH', `Provided project path '${conf.project}' doesn't exists. Make sure that project path is correct`);
+            throwError('NON_EXISTS_PROJECT_PATH', `Provided project path '${conf.project}' doesn't exists. Make sure that project path is correct`);
         }
     } else {
-        printError('MISSING_PROJECT', 'You forget to pass project path as --project');
+        throwError('MISSING_PROJECT', 'You forget to pass project path as --project');
     }
 
     if (conf._.length === 0) {
-        printError('MISSING_SRC_PATH', 'You forget to pass path to inputFiles');
+        throwError('MISSING_SRC_PATH', 'You forget to pass path to inputFiles');
     } else {
         verbose('Applying glob pattern to find all .ts files in project');
         glob(path.resolve(conf._[0], '**', '*.ts'), (err, files) => {
             if (err) {
-                printError('GLOB_ERROR', `Error during glob ${err}`);
+                throwError('GLOB_ERROR', `Error during glob ${err}`);
             }
             if (files.length === 0) {
-                printError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf._[0]}'`);
+                throwError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf._[0]}'`);
             }
             console.log(`Analyzing ${files.length} typescript files ...`);
             const { successFiles, errorFiles } = checkFiles(files, tsconf.config.compilerOptions);
 
             const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
-            const brokenFiles = Array.from(errorFiles.keys()).filter(f => tsconfFiles.includes(f));
+            const brokenFiles = Object.keys(errorFiles).filter(f => tsconfFiles.includes(f));
+            const remainingFiles = files.filter(f => !brokenFiles.includes(f) && !successFiles.includes(f));
 
-            // check success and error files against tsconfig.json
+            // verbose(`--- Files Ok: ${successFiles.length} ---`);
+            // verbose(successFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
+            // verbose(`--- Files with errors: ${errorFiles.size} ---`);
+            // verbose(Object.keys(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
 
-            verbose(`--- Files Ok: ${successFiles.length} ---`);
-            verbose(successFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
-            verbose(`--- Files with errors: ${errorFiles.size} ---`);
-            verbose(Array.from(errorFiles.keys()).map(p => path.relative(absTsconfDirName, p)).join('\n'));
-
-            console.log(`--- Include new files [${newFilesToBeIncluded.length}] to tsconf ---`);
+            console.log(`Include new files (${newFilesToBeIncluded.length}) to tsconf`);
             newFilesToBeIncluded.forEach(nf => {
-                console.log(path.relative(absTsconfDirName, nf));
+                console.log(yellow(path.relative(absTsconfDirName, nf)));
             });
-            console.log(`--- Those files [${brokenFiles.length}] were broken ---`);
-            brokenFiles.forEach(bf => {
-                const errors = errorFiles.get(bf);
-                const fileRelPath = path.relative(absTsconfDirName, bf);
-                console.log(`[tscfc] ${red(fileRelPath)} ${errors.length} errors`);
-                console.log(errors.map(err => `\tTS${err.code}: ${red(err.messageText.toString())}`).join('\n'));
-            });
-            console.log('--- Stats ----');
-            console.log(`Remaining ${files.length - errorFiles.size - newFilesToBeIncluded.length}/${files.length} files to be fixed`)
+
+            console.log(`Remaining ${files.length - newFilesToBeIncluded.length - tsconfFiles.length}/${files.length} files to be fixed`);
+            verbose(remainingFiles.map(p => `\t${path.relative(absTsconfDirName, p)}`).join('\n'));
+
+            if (brokenFiles.length) {
+                brokenFiles.forEach(bf => {
+                    const errors = errorFiles[bf];
+                    const fileRelPath = path.relative(absTsconfDirName, bf);
+                    reportFileCheck(fileRelPath, errors);
+                });
+                console.log(`Found errors in ${brokenFiles.length} files`);
+            }
 
             // console.log(successFiles.map(p => path.relative(tsconfDirName, p)));
             // console.log(errorFiles.map(p => path.relative(tsconfDirName, p)));

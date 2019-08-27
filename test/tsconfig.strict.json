@@ -5,6 +5,7 @@
     },
     "files": [
         "a.ts",
-        "b.ts"
+        "b.ts",
+        "submodule/times.ts"
     ]
 }
