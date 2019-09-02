@@ -7,7 +7,7 @@ import fs, { writeFileSync } from "fs";
 import glob from "glob";
 import path from "path";
 
-import { throwError, reportFileCheck, yellow } from "./reporter";
+import { throwError, reportFileCheck, yellow, red } from "./reporter";
 import { checkFiles } from "./check-files";
 
 /// CLI
@@ -37,9 +37,8 @@ if (conf.h || conf.help || conf._.length === 0) {
     process.stdout.write("\n");
     process.stdout.write("\t--project\tpath to your tsconfig.json\n");
     process.stdout.write("\t--verbose\tprint all logs, usefull for debugging\n");
-    process.stdout.write("\t--update\include successfiles to tsconf\n");
+    process.stdout.write("\t--update\tnclude successfiles to tsconf\n");
     // TODO: Finish --js
-    // TODO: Add --update
     process.exit(0);
 }
 
@@ -59,7 +58,9 @@ function verbose(msg: string) {
     let tsconf: any;
     let absTsconfPath: string;
     let absTsconfDirName: string;
+    let tsconfFilename: string;
     let tsconfFiles: string[];
+    let parsedTsConf: ts.ParsedCommandLine;
 
     if (conf.verbose) {
         isVerbose = true;
@@ -80,7 +81,9 @@ function verbose(msg: string) {
                 throwError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${conf.project}'. Make sure that project path is correct`);
             }
             verbose('Parsing tsconfig');
-            tsconf = ts.parseConfigFileTextToJson('test', file!.toString());
+            tsconfFilename = path.basename(absTsconfPath);
+            tsconf = ts.parseConfigFileTextToJson(tsconfFilename, file!.toString());
+            parsedTsConf = ts.parseJsonConfigFileContent(tsconf.config, ts.sys, absTsconfDirName, undefined, tsconfFilename);
             tsconfFiles = tsconf.config.files
                 ? tsconf.config.files.map(p => path.resolve(absTsconfDirName, p)) // Get absolute path of files
                 : [];
@@ -107,7 +110,7 @@ function verbose(msg: string) {
                 throwError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf._[0]}'`);
             }
             console.log(`Analyzing ${files.length} typescript files ...`);
-            const { successFiles, errorFiles } = checkFiles(files, tsconf.config.compilerOptions);
+            const { successFiles, errorFiles } = checkFiles(files, parsedTsConf.options);
 
             const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
             const brokenFiles = Object.keys(errorFiles).filter(f => tsconfFiles.includes(f));
@@ -118,12 +121,12 @@ function verbose(msg: string) {
             // verbose(`--- Files with errors: ${errorFiles.size} ---`);
             // verbose(Object.keys(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
 
-            console.log(`Include new files (${newFilesToBeIncluded.length}) to tsconf`);
+            console.log(`\nInclude new files (${newFilesToBeIncluded.length}) to tsconf`);
             newFilesToBeIncluded.forEach(nf => {
                 console.log(yellow(path.relative(absTsconfDirName, nf)));
             });
 
-            console.log(`Remaining ${files.length - newFilesToBeIncluded.length - tsconfFiles.length}/${files.length} files to be fixed`);
+            console.log(`Remaining ${files.length - newFilesToBeIncluded.length - tsconfFiles.length}/${files.length} files to be fixed\n`);
             verbose(remainingFiles.map(p => `\t${path.relative(absTsconfDirName, p)}`).join('\n'));
 
             if (brokenFiles.length) {
