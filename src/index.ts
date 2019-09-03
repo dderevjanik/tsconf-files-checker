@@ -7,7 +7,7 @@ import fs, { writeFileSync } from "fs";
 import glob from "glob";
 import path from "path";
 
-import { throwError, reportFileCheck, yellow, red } from "./reporter";
+import { throwError, reportFileCheck, yellow } from "./reporter";
 import { checkFiles } from "./check-files";
 
 /// CLI
@@ -21,6 +21,7 @@ type Config = (typeof config) & {
     project?: string; // Path to project's tsconfig
     verbose?: boolean;
     update?: boolean;
+    remaining?: boolean;
     js?: boolean;
     // TODO: Add --update, which automatically update tsconfig with successFiles
 };
@@ -31,13 +32,14 @@ const conf = nconf
     .get() as Config;
 
 if (conf.h || conf.help || conf._.length === 0) {
-    process.stdout.write("Usage: ts-node --project TSCONFIG_PATH SRC_PATH\n");
+    process.stdout.write("Usage: tscfc --project TSCONFIG_PATH SRC_PATH\n");
     process.stdout.write("\n");
-    process.stdout.write("Example: ts-node ./index.ts --project ../App/tsconfig.strict.json ../App/src\n");
+    process.stdout.write("Example: tscfc ./index.ts --project ../App/tsconfig.strict.json ../App/src\n");
     process.stdout.write("\n");
     process.stdout.write("\t--project\tpath to your tsconfig.json\n");
     process.stdout.write("\t--verbose\tprint all logs, usefull for debugging\n");
-    process.stdout.write("\t--update\tnclude successfiles to tsconf\n");
+    process.stdout.write("\t--update\tinclude successfiles to tsconf\n");
+    process.stdout.write("\t--remaining\tprint all remaining files");
     // TODO: Finish --js
     process.exit(0);
 }
@@ -121,21 +123,25 @@ function verbose(msg: string) {
             // verbose(`--- Files with errors: ${errorFiles.size} ---`);
             // verbose(Object.keys(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
 
-            console.log(`\nInclude new files (${newFilesToBeIncluded.length}) to tsconf`);
-            newFilesToBeIncluded.forEach(nf => {
-                console.log(yellow(path.relative(absTsconfDirName, nf)));
-            });
+            if (newFilesToBeIncluded.length) {
+                console.log(`\nInclude new files (${newFilesToBeIncluded.length}) to tsconf`);
+                newFilesToBeIncluded.forEach(nf => {
+                    console.log(yellow(path.relative(absTsconfDirName, nf)));
+                });
+            }
 
-            console.log(`Remaining ${files.length - newFilesToBeIncluded.length - tsconfFiles.length}/${files.length} files to be fixed\n`);
-            verbose(remainingFiles.map(p => `\t${path.relative(absTsconfDirName, p)}`).join('\n'));
+            if (conf.remaining) {
+                console.log(`Remaining ${files.length - newFilesToBeIncluded.length - tsconfFiles.length}/${files.length} files to be fixed`);
+                console.log(remainingFiles.map(p => `\t${path.relative(absTsconfDirName, p)}`).join('\n'));
+            }
 
             if (brokenFiles.length) {
+                console.log(`Found errors in (${brokenFiles.length}) files`)
                 brokenFiles.forEach(bf => {
                     const errors = errorFiles[bf];
                     const fileRelPath = path.relative(absTsconfDirName, bf);
                     reportFileCheck(fileRelPath, errors);
                 });
-                console.log(`Found errors in ${brokenFiles.length} files`);
             }
 
             if (conf.update && newFilesToBeIncluded.length) {
