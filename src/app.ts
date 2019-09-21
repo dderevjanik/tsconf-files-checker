@@ -60,7 +60,6 @@ function parseTSConfig(absTSConfPath: string) {
     if (fs.existsSync(absTSConfPath)) {
         let file: Buffer;
         try {
-            console.log(`Reading tsconfig '${absTSConfPath}'`);
             file = fs.readFileSync(absTSConfPath);
         } catch (err) {
             return reporters.throwError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${absTSConfPath}'. Make sure that project path is correct`);
@@ -90,11 +89,34 @@ function globFiles(dir: string): string[] {
     return files;
 }
 
+function generateReport({
+    allFiles,
+    tsconfFiles,
+    successFiles,
+    errorFiles,
+}: {
+    allFiles: string[],
+    tsconfFiles: string[],
+    successFiles: string[],
+    errorFiles: string[]
+}) {
+    const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
+    const brokenFiles = errorFiles.filter(f => tsconfFiles.includes(f));
+    const remainingFiles = allFiles.filter(f => !brokenFiles.includes(f) && !successFiles.includes(f));
+    return {
+        newFilesToBeIncluded,
+        brokenFiles,
+        remainingFiles
+    };
+}
+
 export function startApp(conf: AppConf): void {
     const absTSConfDirName = path.dirname(conf.absTSConfPath);
     const tsconfName = path.basename(conf.absTSConfPath);
 
+    console.log("Parsing TSConf");
     const tsconfOptions = parseTSConfig(conf.absTSConfPath);
+    console.log("Globing all files from src");
     const filesToCheck = globFiles(conf.absSrcPath);
     if (filesToCheck.length === 0) {
         // TODO: Should throw an error ?
@@ -103,48 +125,54 @@ export function startApp(conf: AppConf): void {
 
     console.log(`Analyzing ${filesToCheck.length} typescript files ...`);
     const { successFiles, errorFiles } = checkFilesWithTSOptions(filesToCheck, tsconfOptions.tsconfParsed.options);
-
-    const newFilesToBeIncluded = successFiles.filter(f => !tsconfOptions.absTSConfFiles.includes(f));
-    const brokenFiles = Object.keys(errorFiles).filter(f => tsconfOptions.absTSConfFiles.includes(f));
-    const remainingFiles = filesToCheck.filter(f => !brokenFiles.includes(f) && !successFiles.includes(f));
+    console.log("Generating report");
+    const report = generateReport({
+        allFiles: filesToCheck,
+        tsconfFiles: tsconfOptions.absTSConfFiles,
+        errorFiles: Object.keys(errorFiles),
+        successFiles: successFiles
+    })
+    // const newFilesToBeIncluded = successFiles.filter(f => !tsconfOptions.absTSConfFiles.includes(f));
+    // const brokenFiles = Object.keys(errorFiles).filter(f => tsconfOptions.absTSConfFiles.includes(f));
+    // const remainingFiles = filesToCheck.filter(f => !brokenFiles.includes(f) && !successFiles.includes(f));
 
     // verbose(`--- Files Ok: ${successFiles.length} ---`);
     // verbose(successFiles.map(p => path.relative(absTsconfDirName, p)).join('\n'));
     // verbose(`--- Files with errors: ${errorFiles.size} ---`);
     // verbose(Object.keys(errorFiles).map(p => path.relative(absTsconfDirName, p)).join('\n'));
 
-    if (newFilesToBeIncluded.length) {
+    if (report.newFilesToBeIncluded.length) {
         // TODO: if update, change include to INCLUDED
-        console.log(`\nInclude ${newFilesToBeIncluded.length} file(s) to '${tsconfName}'`);
-        newFilesToBeIncluded.forEach(nf => {
+        console.log(`\nInclude ${report.newFilesToBeIncluded.length} file(s) to '${tsconfName}'`);
+        report.newFilesToBeIncluded.forEach(nf => {
             console.log(colors.yellow(path.relative(absTSConfDirName, nf)));
         });
     }
 
     if (conf.shouldShowRemainings) {
         // TODO: Check if (files.length === successFiles) and print it out
-        console.log(`Remaining ${filesToCheck.length - newFilesToBeIncluded.length - tsconfOptions.absTSConfFiles.length}/${filesToCheck.length} files to be fixed`);
-        console.log(remainingFiles.map(p => `\t${path.relative(absTSConfDirName, p)}`).join('\n'));
+        console.log(`Remaining ${filesToCheck.length - report.newFilesToBeIncluded.length - tsconfOptions.absTSConfFiles.length}/${filesToCheck.length} files to be fixed`);
+        console.log(report.remainingFiles.map(p => `\t${path.relative(absTSConfDirName, p)}`).join('\n'));
     }
 
-    if (brokenFiles.length) {
-        console.log(`Found errors in ${brokenFiles.length} file(s)`);
-        brokenFiles.forEach(bf => {
+    if (report.brokenFiles.length) {
+        console.log(`Found errors in ${report.brokenFiles.length} file(s)`);
+        report.brokenFiles.forEach(bf => {
             const errors = errorFiles[bf];
             const fileRelPath = path.relative(absTSConfDirName, bf);
             reporters.reportFileCheck(fileRelPath, errors);
         });
     }
 
-    if (conf.shouldUpdateFiles && newFilesToBeIncluded.length) {
-        newFilesToBeIncluded.forEach(f => {
+    if (conf.shouldUpdateFiles && report.newFilesToBeIncluded.length) {
+        report.newFilesToBeIncluded.forEach(f => {
             const relPath = path.relative(conf.absTSConfPath, f);
             tsconfOptions.tsconfJSON.config.files.push(relPath);
         });
         writeFileSync(conf.absTSConfPath, JSON.stringify(tsconfOptions.tsconfJSON.config, null, 2));
     }
 
-    if (brokenFiles.length) {
+    if (report.brokenFiles.length) {
         process.exit(1);
     }
     process.exit(0);

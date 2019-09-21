@@ -57,8 +57,6 @@ if (conf.verbose) {
 
 // TODO: If not defined, try to find nearest tsconfig.json in CWD using ts.findConf. Inform user about that
 if (conf.project !== undefined && conf.p !== undefined) {
-    verbose('Checking existence of tsconfig');
-} else {
     reporters.throwError('MISSING_PROJECT', 'You forget to pass project path as --project');
 }
 
