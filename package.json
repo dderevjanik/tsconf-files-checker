@@ -1,6 +1,6 @@
 {
   "name": "tscfc",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "",
   "main": "index.js",
   "directories": {
@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
-    "@types/nconf": "^0.10.0",
     "@types/node": "^12.7.1",
+    "@types/yargs-parser": "^13.1.0",
     "glob": "^7.1.4",
-    "nconf": "^0.10.0",
-    "typescript": "^3.5.3"
+    "typescript": "^3.5.3",
+    "yargs-parser": "^14.0.0"
   },
   "devDependencies": {},
   "scripts": {
