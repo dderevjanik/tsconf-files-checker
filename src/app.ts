@@ -1,6 +1,6 @@
 import ts from "typescript";
 import path from "path";
-import fs from "fs";
+import fs, { existsSync } from "fs";
 import { writeFileSync } from "fs";
 import { reporters, colors } from "./utils";
 
@@ -110,12 +110,30 @@ function generateReport({
     };
 }
 
+function updateTSConf(absTSConfPath: string, conf: any, absFilenames: string[]) {
+    const absDirName = path.dirname(absTSConfPath);
+    if (!existsSync(absTSConfPath)) {
+        reporters.throwError('TSCONF_NOT_EXISTS', `Provided path '${absTSConfPath}' for tsconf doesn't exists`);
+    }
+    if (conf.files === undefined) {
+        conf.files = [];
+    }
+    absFilenames.forEach(absPath => {
+        const relPath = path.relative(absDirName, absPath);
+        if (!conf.files.includes(relPath)) {
+            conf.files.push(relPath);
+        }
+    });
+    writeFileSync(absTSConfPath, JSON.stringify(conf, null, 2));
+}
+
 export function startApp(conf: AppConf): void {
     const absTSConfDirName = path.dirname(conf.absTSConfPath);
     const tsconfName = path.basename(conf.absTSConfPath);
 
     console.log("Parsing TSConf");
     const tsconfOptions = parseTSConfig(conf.absTSConfPath);
+
     console.log("Globing all files from src");
     const filesToCheck = globFiles(conf.absSrcPath);
     if (filesToCheck.length === 0) {
@@ -125,6 +143,7 @@ export function startApp(conf: AppConf): void {
 
     console.log(`Analyzing ${filesToCheck.length} typescript files ...`);
     const { successFiles, errorFiles } = checkFilesWithTSOptions(filesToCheck, tsconfOptions.tsconfParsed.options);
+
     console.log("Generating report");
     const report = generateReport({
         allFiles: filesToCheck,
@@ -143,7 +162,11 @@ export function startApp(conf: AppConf): void {
 
     if (report.newFilesToBeIncluded.length) {
         // TODO: if update, change include to INCLUDED
-        console.log(`\nInclude ${report.newFilesToBeIncluded.length} file(s) to '${tsconfName}'`);
+        if (conf.shouldUpdateFiles) {
+            console.log(`\nAdding ${report.newFilesToBeIncluded.length} files(s) to '${tsconfName}'`);
+        } else {
+            console.log(`\nInclude ${report.newFilesToBeIncluded.length} file(s) to '${tsconfName}'`);
+        }
         report.newFilesToBeIncluded.forEach(nf => {
             console.log(colors.yellow(path.relative(absTSConfDirName, nf)));
         });
@@ -165,11 +188,12 @@ export function startApp(conf: AppConf): void {
     }
 
     if (conf.shouldUpdateFiles && report.newFilesToBeIncluded.length) {
-        report.newFilesToBeIncluded.forEach(f => {
-            const relPath = path.relative(conf.absTSConfPath, f);
-            tsconfOptions.tsconfJSON.config.files.push(relPath);
-        });
-        writeFileSync(conf.absTSConfPath, JSON.stringify(tsconfOptions.tsconfJSON.config, null, 2));
+        updateTSConf(conf.absTSConfPath, tsconfOptions.tsconfJSON.config, report.newFilesToBeIncluded);
+        // report.newFilesToBeIncluded.forEach(f => {
+        //     const relPath = path.relative(conf.absTSConfPath, f);
+        //     tsconfOptions.tsconfJSON.config.files.push(relPath);
+        // });
+        // writeFileSync(conf.absTSConfPath, JSON.stringify(tsconfOptions.tsconfJSON.config, null, 2));
     }
 
     if (report.brokenFiles.length) {
