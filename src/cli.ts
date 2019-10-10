@@ -4,7 +4,7 @@
 import yargs from "yargs-parser";
 import path from "path";
 import { startApp } from "./app";
-import { reporters } from "./utils";
+import { reporters, AbsPath } from "./utils";
 
 type Config = {
     _: string[];
@@ -47,7 +47,7 @@ if (conf._.length === 0) {
     startApp({
         shouldShowRemainings: conf.remaining || conf.r || false,
         shouldUpdateFiles: conf.update || conf.u || false,
-        absSrcPath: path.resolve(conf._[0]),
-        absTSConfPath: path.resolve(conf.project || conf.p)
+        srcPath: path.resolve(conf._[0]) as AbsPath,
+        tsconfPath: path.resolve(conf.project || conf.p) as AbsPath
     });
 }

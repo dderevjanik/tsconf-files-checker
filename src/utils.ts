@@ -15,3 +15,7 @@ export const reporters = {
         console.log(errors.map(err => `\tTS${err.code}: ${colors.red(err.messageText.toString())}`).join('\n'));
     }
 }
+
+type Brand<T, U> = T & { __brand: U };
+export type AbsPath = Brand<string, "AbsolutePath">;
+export type RelPath = Brand<string, "RelativePath">;

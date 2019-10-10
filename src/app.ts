@@ -2,23 +2,23 @@ import ts from "typescript";
 import path from "path";
 import fs, { existsSync } from "fs";
 import { writeFileSync } from "fs";
-import { reporters, colors } from "./utils";
+import { reporters, colors, AbsPath, RelPath } from "./utils";
 
 export interface AppConf {
     shouldUpdateFiles: boolean;
     shouldShowRemainings: boolean;
-    absTSConfPath: string;
-    absSrcPath: string;
+    tsconfPath: AbsPath;
+    srcPath: AbsPath;
 }
 
 /**
- * @param absTSFilesPaths files to be checked
+ * @param tsFilesPath files to be checked
  * @param tsConfOptions with tsconf
  */
-function checkFilesWithTSOptions(absTSFilesPaths: string[], tsConfOptions: ts.CompilerOptions) {
+function checkFilesWithTSOptions(tsFilesPath: AbsPath[], tsConfOptions: ts.CompilerOptions) {
     // Obey 'node_modules/' files
     const nodeModulesRE = new RegExp(/node_modules/);
-    const absolutePathsWithoutNodeModules = absTSFilesPaths
+    const absolutePathsWithoutNodeModules = tsFilesPath
         .filter(f => !nodeModulesRE.test(f))
         .map(f => path.resolve(f));
 
@@ -30,8 +30,8 @@ function checkFilesWithTSOptions(absTSFilesPaths: string[], tsConfOptions: ts.Co
     diagnostics.forEach((dg) => {
         if (dg.code) {
             // File has error
-            const filename = dg.file!.fileName;
-            if (absTSFilesPaths.includes(filename)) {
+            const filename = dg.file!.fileName as AbsPath;
+            if (tsFilesPath.includes(filename)) {
                 // File is in inputFiles
                 if (filename in errorFiles) {
                     const prevErrors = errorFiles[filename];
@@ -51,23 +51,23 @@ function checkFilesWithTSOptions(absTSFilesPaths: string[], tsConfOptions: ts.Co
 }
 
 /**
- * @param absTSConfPath absolute path to tsconf
+ * @param tsconfPath absolute path to tsconf
  */
-function parseTSConfig(absTSConfPath: string) {
-    const absTSConfDirName = path.dirname(absTSConfPath);
-    const absTSConfFileName = path.basename(absTSConfPath);
+function parseTSConfig(tsconfPath: AbsPath) {
+    const absTSConfDirName = path.dirname(tsconfPath);
+    const absTSConfFileName = path.basename(tsconfPath);
 
-    if (fs.existsSync(absTSConfPath)) {
+    if (fs.existsSync(tsconfPath)) {
         let file: Buffer;
         try {
-            file = fs.readFileSync(absTSConfPath);
+            file = fs.readFileSync(tsconfPath);
         } catch (err) {
-            return reporters.throwError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${absTSConfPath}'. Make sure that project path is correct`);
+            return reporters.throwError('CANNOT_READ_TSCONFIG', `Cannot read provided project path '${tsconfPath}'. Make sure that project path is correct`);
         }
         const tsconfJSON = ts.parseConfigFileTextToJson(absTSConfFileName, file!.toString());
         if (tsconfJSON.error) {
             // For example, if json has comments, parse will throw an error
-            return reporters.throwError('CANNOT_PARSE_TSCONFIG', `Cannot parse provided project '${absTSConfPath}'. Make sure that tsconfig is valid config`);
+            return reporters.throwError('CANNOT_PARSE_TSCONFIG', `Cannot parse provided project '${tsconfPath}'. Make sure that tsconfig is valid config`);
         }
         const parsedTSConf = ts.parseJsonConfigFileContent(tsconfJSON.config, ts.sys, absTSConfDirName, undefined, absTSConfFileName);
         const tsconfFiles = tsconfJSON.config.files
@@ -79,7 +79,7 @@ function parseTSConfig(absTSConfPath: string) {
             tsconfJSON: tsconfJSON
         };
     } else {
-        return reporters.throwError('NON_EXISTS_PROJECT_PATH', `Provided project path '${absTSConfPath}' doesn't exists. Make sure that project path is correct`);
+        return reporters.throwError('NON_EXISTS_PROJECT_PATH', `Provided project path '${tsconfPath}' doesn't exists. Make sure that project path is correct`);
     }
 }
 
@@ -95,12 +95,12 @@ function generateReport({
     successFiles,
     errorFiles,
 }: {
-    allFiles: string[],
+    allFiles: AbsPath[],
     tsconfFiles: string[],
     successFiles: string[],
     errorFiles: string[]
 }) {
-    const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f));
+    const newFilesToBeIncluded = successFiles.filter(f => !tsconfFiles.includes(f)) as AbsPath[];
     const brokenFiles = errorFiles.filter(f => tsconfFiles.includes(f));
     const remainingFiles = allFiles.filter(f => !brokenFiles.includes(f) && !successFiles.includes(f));
     return {
@@ -110,35 +110,35 @@ function generateReport({
     };
 }
 
-function updateTSConf(absTSConfPath: string, conf: any, absFilenames: string[]) {
-    const absDirName = path.dirname(absTSConfPath);
-    if (!existsSync(absTSConfPath)) {
-        reporters.throwError('TSCONF_NOT_EXISTS', `Provided path '${absTSConfPath}' for tsconf doesn't exists`);
+function updateTSConf(tsconfPath: AbsPath, conf: any, filenames: AbsPath[]) {
+    const absDirName = path.dirname(tsconfPath);
+    if (!existsSync(tsconfPath)) {
+        reporters.throwError('TSCONF_NOT_EXISTS', `Provided path '${tsconfPath}' for tsconf doesn't exists`);
     }
     if (conf.files === undefined) {
         conf.files = [];
     }
-    absFilenames.forEach(absPath => {
-        const relPath = path.relative(absDirName, absPath);
+    filenames.forEach(absPath => {
+        const relPath = path.relative(absDirName, absPath) as RelPath;
         if (!conf.files.includes(relPath)) {
             conf.files.push(relPath);
         }
     });
-    writeFileSync(absTSConfPath, JSON.stringify(conf, null, 2));
+    writeFileSync(tsconfPath, JSON.stringify(conf, null, 2));
 }
 
 export function startApp(conf: AppConf): void {
-    const absTSConfDirName = path.dirname(conf.absTSConfPath);
-    const tsconfName = path.basename(conf.absTSConfPath);
+    const absTSConfDirName = path.dirname(conf.tsconfPath);
+    const tsconfName = path.basename(conf.tsconfPath);
 
     console.log("Parsing TSConf");
-    const tsconfOptions = parseTSConfig(conf.absTSConfPath);
+    const tsconfOptions = parseTSConfig(conf.tsconfPath);
 
     console.log("Globing all files from src");
-    const filesToCheck = globFiles(conf.absSrcPath);
+    const filesToCheck = globFiles(conf.srcPath) as AbsPath[];
     if (filesToCheck.length === 0) {
         // TODO: Should throw an error ?
-        reporters.throwError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf.absSrcPath}'`);
+        reporters.throwError('NO_FILES_TO_ANALYZE', `There are no typescript files in '${conf.srcPath}'`);
     }
 
     console.log(`Analyzing ${filesToCheck.length} typescript files ...`);
@@ -188,7 +188,7 @@ export function startApp(conf: AppConf): void {
     }
 
     if (conf.shouldUpdateFiles && report.newFilesToBeIncluded.length) {
-        updateTSConf(conf.absTSConfPath, tsconfOptions.tsconfJSON.config, report.newFilesToBeIncluded);
+        updateTSConf(conf.tsconfPath, tsconfOptions.tsconfJSON.config, report.newFilesToBeIncluded);
         // report.newFilesToBeIncluded.forEach(f => {
         //     const relPath = path.relative(conf.absTSConfPath, f);
         //     tsconfOptions.tsconfJSON.config.files.push(relPath);
