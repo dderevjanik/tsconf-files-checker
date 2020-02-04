@@ -1,13 +1,13 @@
 import ts from "typescript";
 
 export const colors = {
-    red: (str: string) => `\u001b[31m${str}\u001b[39m`,
-    yellow: (str: string) => `\u001b[93m${str}\u001b[39m`
+    red: (str: string | number) => `\u001b[31m${str}\u001b[39m`,
+    yellow: (str: string | number) => `\u001b[93m${str}\u001b[39m`
 };
 
 export const reporters = {
-    throwError: (type: string, msg: string) => {
-        throw `${colors.red(type)}\n${colors.red(msg)}`;
+    throwError: (code: number, msg: string) => {
+        throw `${colors.red(code)}\n${colors.red(msg)}`;
     },
 
     reportFileCheck: (fileRelPath: string, errors: ts.Diagnostic[]) => {

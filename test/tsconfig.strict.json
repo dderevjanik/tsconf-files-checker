@@ -2,10 +2,11 @@
     "compilerOptions": {
         "module": "commonjs",
         "strict": true,
+        "allowJs": true
     },
     "files": [
-        "a.ts",
-        "b.ts",
+        "isOk.ts",
+        "broken.ts",
         "submodule/times.ts"
     ]
 }

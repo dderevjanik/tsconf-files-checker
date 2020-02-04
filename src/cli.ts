@@ -5,6 +5,7 @@ import yargs from "yargs-parser";
 import path from "path";
 import { startApp } from "./app";
 import { reporters, AbsPath } from "./utils";
+import { EError } from "./errors";
 
 type Config = {
     _: string[];
@@ -15,6 +16,7 @@ type Config = {
     r?: boolean;
     u?: boolean;
     update?: boolean;
+    verbose?: boolean;
     remaining?: boolean;
     // TOOD: Rename --update to --addFiles ?
 };
@@ -27,7 +29,8 @@ if (conf.h || conf.help || conf._.length === 0) {
     process.stdout.write("\n");
     process.stdout.write("\t--project -p\tpath to your tsconfig.json\n");
     process.stdout.write("\t--update -u\tinclude successfiles to tsconf\n");
-    process.stdout.write("\t--remaining -r\tprint all remaining files");
+    process.stdout.write("\t--remaining -r\tprint all remaining files\n");
+    process.stdout.write("\t--verbose\tverbose");
     // TODO: Finish --js
     process.exit(0);
 }
@@ -38,16 +41,17 @@ if (conf.h || conf.help || conf._.length === 0) {
 
 // TODO: If not defined, try to find nearest tsconfig.json in CWD using ts.findConf. Inform user about that
 if (conf.project !== undefined && conf.p !== undefined) {
-    reporters.throwError('MISSING_PROJECT', 'You forget to pass project path as --project');
+    reporters.throwError(EError.MISSING_PROJECT, 'You forget to pass project path as --project');
 }
 
 if (conf._.length === 0) {
-    reporters.throwError('MISSING_SRC_PATH', 'You forget to pass path to inputFiles');
+    reporters.throwError(EError.MISSING_SRC_PATH, 'You forget to pass path to inputFiles');
 } else {
     startApp({
         shouldShowRemainings: conf.remaining || conf.r || false,
         shouldUpdateFiles: conf.update || conf.u || false,
         srcPath: path.resolve(conf._[0]) as AbsPath,
-        tsconfPath: path.resolve(conf.project || conf.p) as AbsPath
+        tsconfPath: path.resolve(conf.project || conf.p) as AbsPath,
+        verbose: conf.verbose || false
     });
 }

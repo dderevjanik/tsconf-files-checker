@@ -1,13 +1,13 @@
 {
   "name": "tscfc",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "description": "",
   "main": "index.js",
   "directories": {
     "test": "test"
   },
   "bin": {
-    "tscfc": "dist/index.js"
+    "tscfc": "dist/cli.js"
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
@@ -20,7 +20,7 @@
   "devDependencies": {},
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./dist/cli.js --verbose --project ./test/tsconfig.strict.json ./test/"
   },
   "keywords": [],
   "author": "",
