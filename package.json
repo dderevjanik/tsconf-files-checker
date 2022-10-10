@@ -10,12 +10,12 @@
     "tscfc": "dist/cli.js"
   },
   "dependencies": {
-    "@types/glob": "^7.1.1",
-    "@types/node": "^12.7.1",
-    "@types/yargs-parser": "^13.1.0",
-    "glob": "^7.1.4",
-    "typescript": "^3.5.3",
-    "yargs-parser": "^14.0.0"
+    "@types/glob": "^8.0.0",
+    "@types/node": "^18.8.3",
+    "@types/yargs-parser": "^21.0.0",
+    "glob": "^8.0.3",
+    "typescript": "^4.8.4",
+    "yargs-parser": "^21.1.1"
   },
   "devDependencies": {},
   "scripts": {

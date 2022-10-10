@@ -21,7 +21,7 @@ type Config = {
     // TOOD: Rename --update to --addFiles ?
 };
 
-const conf: Config = yargs(process.argv.slice(2));
+const conf: Config = yargs(process.argv.slice(2)) as any;
 if (conf.h || conf.help || conf._.length === 0) {
     process.stdout.write("Usage: tscfc --project TSCONFIG_PATH SRC_PATH\n");
     process.stdout.write("\n");
