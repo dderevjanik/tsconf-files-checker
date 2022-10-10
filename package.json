@@ -20,7 +20,7 @@
   "devDependencies": {},
   "scripts": {
     "build": "tsc",
-    "test": "node ./dist/cli.js --verbose --project ./test/tsconfig.strict.json ./test/"
+    "test": "npm run build && node ./dist/cli.js --verbose --project ./test/tsconfig.strict.json ./test/"
   },
   "keywords": [],
   "author": "",
