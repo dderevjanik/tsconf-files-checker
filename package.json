@@ -15,7 +15,7 @@
     "@types/yargs-parser": "^13.1.0",
     "glob": "^7.1.4",
     "typescript": "^3.5.3",
-    "yargs-parser": "^14.0.0"
+    "yargs-parser": "^15.0.1"
   },
   "devDependencies": {},
   "scripts": {
