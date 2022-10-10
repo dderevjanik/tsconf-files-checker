@@ -1,16 +1,15 @@
 # Tsconf Files Checker
 
 A small CLI utility that helps with incrementally converting your project to typescript
-or for adding new rules (strictNullChecks, noImplicitAny, etc...) to existing typescript project
+or to incrementally apply new rules (strictNullChecks, noImplicitAny, etc...) to existing typescript project
 
 ## Flow
 
-- 1. First `tscfc` run will output files without errors
-- 2. Command `tscfc --update` will automatically include those files to tsconf
-- 3. After that, each `tscfc --update` checks files against tsconf files (from step 2.) and show user if anything is broken
-        - 3.1. If there are no broken files, then Ok. User's changes didn't affect any files in tsconf
-        - 3.2. If there are files without error, tscfc will add them to tsconf.
-        - 3.3. If there are broken files (files in tsconf now have errors), it will output errors and exit code 1 (fail tests)
+- First `tscfc` run will output files without errors
+- Command `tscfc --update` include files without errors files to tsconf
+- After that, each `tscfc --update` checks files against tsconf files (from step 2.) and show user if anything is broken
+        - If there are files without error, tscfc will include them to tsconf
+        - If there are broken files (files that are already in tsconf have errors), it will output errors and exit code 1 (fail tests)
 
 ## Installation
 
@@ -50,7 +49,7 @@ If you want to incrementally enforce some rules (e.g. noImplicitAny, strictNullC
 }
 ```
 
-in package json add `pretest` script, which will automatically runs
+in `package.json` add `pretest` script, which will automatically runs
 before your test, to check if you broke something or not, even before test.
 
 ```json
