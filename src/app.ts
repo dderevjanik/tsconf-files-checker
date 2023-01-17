@@ -86,7 +86,7 @@ function parseTSConfig(tsconfPath: AbsPath) {
 
 // TODO: Remove this function and use ts.sys.readDirectory(path, [".ts"]) instead
 function globFiles(dir: string, includeJSFiles: boolean): string[] {
-    const files = ts.sys.readDirectory(dir, includeJSFiles ? [".ts", ".js"] : [".ts"]);
+    const files = ts.sys.readDirectory(dir, includeJSFiles ? [".ts", ".js", ".tsx", ".jsx"] : [".ts", ".tsx"]);
     return files;
 }
 
