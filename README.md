@@ -1,15 +1,14 @@
 # Tsconf Files Checker
 
-A small CLI utility that helps with incrementally converting your project to typescript
-or to incrementally apply new rules (strictNullChecks, noImplicitAny, etc...) to existing typescript project
+A small CLI utility that helps with incrementally converting your project to TypeScript or to incrementally apply new rules (strictNullChecks, noImplicitAny, etc.) to an existing TypeScript project.
 
 ## Flow
 
-- First `tscfc` run will output files without errors
-- Command `tscfc --update` include files without errors files to tsconf
-- After that, each `tscfc --update` checks files against tsconf files (from step 2.) and show user if anything is broken
-        - If there are files without error, tscfc will include them to tsconf
-        - If there are broken files (files that are already in tsconf have errors), it will output errors and exit code 1 (fail tests)
+1. The first `tscfc` run will output files without errors.
+2. Command `tscfc --update` includes files without errors to `tsconfig`.
+3. After that, each `tscfc --update` checks files against `tsconfig` files (from step 2) and shows the user if anything is broken:
+   - If there are files without errors, `tscfc` will include them in `tsconfig`.
+   - If there are broken files (files that are already in `tsconfig` have errors), it will output errors and exit with code 1 (fail tests).
 
 ## Installation
 
@@ -19,25 +18,24 @@ npm i -D tscfc
 
 ## Example
 
-Run from terminal:
+Run from the terminal:
 
 ```
 Usage: tscfc --project TSCONFIG_PATH SRC_PATH
 
 Example: tscfc ./index.ts --project ../App/tsconfig.strict.json ../App/src
 
-        --project       path to your tsconfig.json
-        --verbose       print all logs, usefull for debugging
-        --update        include successfiles to tsconf
-        --remaining     print all remaining files
+        --project       Path to your tsconfig.json
+        --verbose       Print all logs, useful for debugging
+        --update        Include successful files to tsconfig
+        --remaining     Print all remaining files
 ```
 
-*Note: In order to check javascript files, please include `allowJS: true` to tsconfig.*
+_Note: In order to check JavaScript files, please include `allowJs: true` in tsconfig._
 
 ## Recommended Settings
 
-If you want to incrementally enforce some rules (e.g. noImplicitAny, strictNullChecks) create
-`tsconfig.strict.json` alongside with your `tsconfig.json`. Then add to `tsconfig.strict.json`:
+If you want to incrementally enforce some rules (e.g., noImplicitAny, strictNullChecks), create `tsconfig.strict.json` alongside your `tsconfig.json`. Then add to `tsconfig.strict.json`:
 
 ```json
 {
@@ -49,15 +47,12 @@ If you want to incrementally enforce some rules (e.g. noImplicitAny, strictNullC
 }
 ```
 
-in `package.json` add `pretest` script, which will automatically runs
-before your test, to check if you broke something or not, even before test.
+In `package.json`, add a `pretest` script, which will automatically run before your tests to check if you broke something or not, even before the test.
 
 ```json
 {
-  //...
   "scripts": {
     "pretest": "tscfc --project ./tsconfig.strict.json ./src"
   }
-  //...
 }
 ```
