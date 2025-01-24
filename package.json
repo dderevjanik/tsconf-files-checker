@@ -1,6 +1,6 @@
 {
   "name": "tscfc",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "CLI utility for incrementally converting projects to TypeScript or applying new rules.",
   "main": "index.js",
   "directories": {
